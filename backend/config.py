@@ -19,8 +19,6 @@ class Settings:
     voices_dir: Path = data_dir / "voices"
     outputs_dir: Path = data_dir / "outputs"
     previews_dir: Path = data_dir / "previews"
-    projects_dir: Path = data_dir / "projects"
-    history_dir: Path = data_dir / "history"
     logs_dir: Path = data_dir / "logs"
 
     # Device
@@ -33,8 +31,6 @@ class Settings:
             self.voices_dir,
             self.outputs_dir,
             self.previews_dir,
-            self.projects_dir,
-            self.history_dir,
             self.logs_dir,
         ]:
             d.mkdir(parents=True, exist_ok=True)

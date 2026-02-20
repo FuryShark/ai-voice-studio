@@ -88,8 +88,6 @@ lib/
   utils.ts                      — cn() helper (clsx + tailwind-merge)
 types/
   index.ts                      — VoiceProfile, EngineInfo, PreviewResponse, PageId, etc.
-hooks/
-  useWebSocket.ts               — WebSocket connection hook
 ```
 
 ## API Routes

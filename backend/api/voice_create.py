@@ -100,7 +100,15 @@ async def save_from_prompt(
 
     date_part = parts[-2]
     file_part = parts[-1]
-    preview_path = settings.previews_dir / date_part / file_part
+
+    # Path traversal protection
+    for part in (date_part, file_part):
+        if ".." in part or "/" in part or "\\" in part:
+            raise HTTPException(status_code=400, detail="Invalid audio URL")
+
+    preview_path = (settings.previews_dir / date_part / file_part).resolve()
+    if not str(preview_path).startswith(str(settings.previews_dir.resolve())):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     if not preview_path.exists():
         raise HTTPException(status_code=404, detail="Preview audio not found. Generate a preview first.")
