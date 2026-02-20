@@ -88,8 +88,7 @@ ai-voice-studio/
     src/
       pages/           # Create, Library, Settings
       components/      # UI components organized by feature
-      hooks/           # WebSocket, preferences
-      lib/             # API client, utilities
+      lib/             # API client, utilities, WebSocket provider
   start.bat            # Windows one-click launcher
   start.sh             # Mac/Linux launcher
   CLAUDE.md            # Full architecture reference for AI assistants
