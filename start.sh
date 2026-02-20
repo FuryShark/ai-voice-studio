@@ -46,6 +46,17 @@ fi
 echo "  [OK] Node.js $(node --version) found"
 
 # =========================================================
+#  Detect GPU
+# =========================================================
+HAS_NVIDIA=0
+if command -v nvidia-smi &>/dev/null; then
+    HAS_NVIDIA=1
+    echo "  [OK] NVIDIA GPU detected - CUDA acceleration enabled"
+else
+    echo "  [NOTE] No NVIDIA GPU detected - will run in CPU mode"
+fi
+
+# =========================================================
 #  Create virtual environment (first run only)
 # =========================================================
 if [ ! -d "venv" ]; then
@@ -61,7 +72,7 @@ source venv/bin/activate
 # =========================================================
 #  Install Python dependencies (first run only)
 # =========================================================
-if [ ! -f "venv/.deps-installed" ]; then
+if [ ! -f "venv/.deps-v4" ]; then
     echo ""
     echo "  [SETUP] Installing Python dependencies..."
     echo "          This may take several minutes on first run."
@@ -69,20 +80,42 @@ if [ ! -f "venv/.deps-installed" ]; then
 
     pip install --upgrade pip --quiet >/dev/null 2>&1
 
-    echo "          Installing core packages..."
-    pip install -r backend/requirements.txt --quiet || {
+    if [ "$HAS_NVIDIA" = "1" ]; then
+        echo "          [1/4] Installing PyTorch with CUDA support..."
+        pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121 || {
+            echo "  [ERROR] Failed to install PyTorch with CUDA."
+            echo "  Check your internet connection and try again."
+            exit 1
+        }
+    else
+        echo "          [1/4] Installing PyTorch (CPU only)..."
+        pip install torch torchaudio || {
+            echo "  [ERROR] Failed to install PyTorch."
+            echo "  Check your internet connection and try again."
+            exit 1
+        }
+    fi
+
+    echo "          [2/4] Installing core packages..."
+    pip install -r backend/requirements.txt || {
         echo "  [ERROR] Failed to install Python dependencies."
         echo "  Check your internet connection and try again."
         exit 1
     }
 
-    echo "          Installing Kokoro TTS engine..."
-    pip install "kokoro>=0.8" soundfile --quiet || {
-        echo "  [WARN] Kokoro install failed - you can still use other engines."
+    echo "          [3/4] Installing Kokoro TTS engine..."
+    pip install "kokoro>=0.8" soundfile 2>/dev/null || {
+        echo "  [WARN] Kokoro install had issues - will still work with other engines."
     }
 
-    touch "venv/.deps-installed"
-    echo "  [OK] Python dependencies installed"
+    echo "          [4/4] Installing Parler-TTS voice designer..."
+    pip install parler-tts 2>/dev/null || {
+        echo "  [WARN] Parler-TTS install had issues - text-prompted voice creation will not work."
+    }
+
+    touch "venv/.deps-v4"
+    echo ""
+    echo "  [OK] All Python dependencies installed"
 else
     echo "  [OK] Python dependencies already installed"
 fi
@@ -110,12 +143,12 @@ if [ ! -f "frontend/dist/index.html" ]; then
     echo ""
     echo "  [SETUP] Installing frontend dependencies..."
     cd frontend
-    npm install --silent 2>/dev/null || {
+    npm install || {
         echo "  [ERROR] Failed to install frontend dependencies."
         exit 1
     }
 
-    echo "  [SETUP] Building frontend..."
+    echo "  [SETUP] Building frontend - this may take a minute..."
     npm run build || {
         echo "  [ERROR] Frontend build failed."
         exit 1
