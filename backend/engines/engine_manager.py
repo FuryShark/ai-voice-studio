@@ -59,6 +59,14 @@ class EngineManager:
         logger.info(f"Engine '{name}' activated")
         return engine
 
+    async def deactivate(self) -> None:
+        """Unload the active engine and clear state."""
+        if self._active_engine:
+            logger.info(f"Deactivating engine: {self._active_name}")
+            await self._active_engine.unload_model()
+            self._active_engine = None
+            self._active_name = None
+
     def get_active_engine(self) -> Optional[TTSEngine]:
         return self._active_engine
 

@@ -118,12 +118,9 @@ class ParlerVoiceService:
 
         # Unload any active TTS engine to free VRAM
         from engines.engine_manager import engine_manager
-        active = engine_manager.get_active_engine()
-        if active:
+        if engine_manager.get_active_engine():
             logger.info(f"Unloading active engine '{engine_manager.get_active_name()}' to free VRAM")
-            await active.unload_model()
-            engine_manager._active_engine = None
-            engine_manager._active_name = None
+            await engine_manager.deactivate()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 

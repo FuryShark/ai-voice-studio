@@ -42,8 +42,8 @@ api/
   router.py                     — Main API router, includes all sub-routers
   voice_create.py               — POST /preview-from-prompt, /save-from-prompt, /from-audio
   voices.py                     — GET/DELETE /voices, GET /voices/{id}/audio, export, import
-  tts.py                        — GET /tts/engines (engine listing)
-  gpu.py                        — GET /gpu/status (VRAM, temp, utilization)
+  tts.py                        — GET /tts/engines, POST /tts/engines/install/{name}
+  gpu.py                        — GET /gpu/status, POST /gpu/fix-cuda
   previews.py                   — Serve preview audio files
   audio.py                      — Serve/export audio files
   ws.py                         — WebSocket at /ws/progress (model download + generation progress)
@@ -71,6 +71,7 @@ pages/
 components/
   create/
     PromptVoiceCreator.tsx      — Text description → Parler-TTS preview → save to library
+    PromptBuilder.tsx           — Voice description builder with attribute dropdowns
     AudioVoiceCreator.tsx       — Audio upload → save as voice profile
   layout/
     MainLayout.tsx              — Page routing via activePage state (not React Router)
@@ -82,9 +83,6 @@ components/
   ui/
     ConfirmDialog.tsx           — Modal confirmation dialog
     ErrorBoundary.tsx           — React error boundary
-  studio/
-    AudioPlayer.tsx             — WaveSurfer.js audio player
-    ProgressIndicator.tsx       — Progress bar component
 lib/
   api.ts                        — Typed fetch wrapper for all endpoints
   utils.ts                      — cn() helper (clsx + tailwind-merge)
@@ -92,7 +90,6 @@ types/
   index.ts                      — VoiceProfile, EngineInfo, PreviewResponse, PageId, etc.
 hooks/
   useWebSocket.ts               — WebSocket connection hook
-  usePreferences.ts             — Local storage preferences
 ```
 
 ## API Routes
@@ -101,6 +98,7 @@ hooks/
 |--------|------|-------------|
 | GET | `/api/health` | Health check + GPU info |
 | GET | `/api/tts/engines` | List registered TTS engines |
+| POST | `/api/tts/engines/install/{name}` | Install engine via pip (streams progress via WS) |
 | GET | `/api/voices/create/parler-status` | Check Parler-TTS availability |
 | POST | `/api/voices/create/preview-from-prompt` | Generate voice preview from description |
 | POST | `/api/voices/create/save-from-prompt` | Save previewed voice to library |
@@ -112,6 +110,7 @@ hooks/
 | POST | `/api/voices/import` | Import voice from ZIP |
 | DELETE | `/api/voices/{id}` | Delete voice |
 | GET | `/api/gpu/status` | GPU memory, utilization, temperature |
+| POST | `/api/gpu/fix-cuda` | Reinstall PyTorch with CUDA support |
 | GET | `/api/previews/{date}/{filename}` | Serve preview audio |
 | WS | `/api/ws/progress` | Real-time progress (model download, generation) |
 
@@ -127,7 +126,7 @@ hooks/
 
 ## Dependencies
 
-- Python 3.10+, Node.js 20+
+- Python 3.10+, Node.js 18+
 - espeak-ng (auto-installed by start.bat) — required for Kokoro
 - GPU: NVIDIA with CUDA recommended (CPU works but slower)
 - Key pip: fastapi, uvicorn, torch, soundfile, pynvml, kokoro, parler-tts
@@ -135,6 +134,6 @@ hooks/
 
 ## start.bat Installer
 
-Uses versioned dependency markers (`venv\.deps-v3`) to track install state.
+Uses versioned dependency markers (`venv\.deps-v4`) to track install state.
 Installs: core packages → Kokoro → Parler-TTS.
 **Caution**: Never use literal parentheses `()` in echo statements inside batch `if ( ... )` blocks — they break the parser.

@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 import zipfile
 from io import BytesIO
@@ -18,6 +19,14 @@ router = APIRouter(prefix="/voices", tags=["voices"])
 
 voice_library = VoiceLibrary(settings.voices_dir)
 
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+def _validate_voice_id(voice_id: str) -> None:
+    """Validate that voice_id is a UUID to prevent path traversal."""
+    if not _UUID_RE.match(voice_id):
+        raise HTTPException(status_code=400, detail="Invalid voice ID")
+
 
 @router.get("")
 async def list_voices():
@@ -28,6 +37,7 @@ async def list_voices():
 
 @router.get("/{voice_id}")
 async def get_voice(voice_id: str):
+    _validate_voice_id(voice_id)
     voice = voice_library.get_voice(voice_id)
     if not voice:
         raise HTTPException(status_code=404, detail="Voice not found")
@@ -36,6 +46,7 @@ async def get_voice(voice_id: str):
 
 @router.delete("/{voice_id}")
 async def delete_voice(voice_id: str):
+    _validate_voice_id(voice_id)
     if not voice_library.delete_voice(voice_id):
         raise HTTPException(status_code=404, detail="Voice not found")
     logger.info(f"Deleted voice: {voice_id}")
@@ -45,6 +56,7 @@ async def delete_voice(voice_id: str):
 @router.get("/{voice_id}/audio")
 async def get_voice_audio(voice_id: str):
     """Serve the reference audio for a voice profile."""
+    _validate_voice_id(voice_id)
     voice = voice_library.get_voice(voice_id)
     if not voice:
         raise HTTPException(status_code=404, detail="Voice not found")
@@ -59,6 +71,7 @@ async def get_voice_audio(voice_id: str):
 
 @router.get("/{voice_id}/export")
 async def export_voice(voice_id: str):
+    _validate_voice_id(voice_id)
     voice = voice_library.get_voice(voice_id)
     if not voice:
         raise HTTPException(status_code=404, detail="Voice not found")
