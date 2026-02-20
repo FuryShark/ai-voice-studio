@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  /* Kurayami — Japanese Dark Elegance */
+
+  /* Backgrounds: Sumi ink & urushi lacquer */
+  --color-background: #0c0a09;
+  --color-foreground: #faf5f0;
+  --color-card: #1a1412;
+  --color-card-foreground: #faf5f0;
+  --color-popover: #1a1412;
+  --color-popover-foreground: #faf5f0;
+
+  /* Primary: Torii gate vermillion */
+  --color-primary: #c53d2e;
+  --color-primary-foreground: #faf5f0;
+
+  /* Secondary: Warm charcoal */
+  --color-secondary: #292220;
+  --color-secondary-foreground: #faf5f0;
+
+  /* Muted: Aged wood tones */
+  --color-muted: #292220;
+  --color-muted-foreground: #a8978a;
+
+  /* Accent */
+  --color-accent: #292220;
+  --color-accent-foreground: #faf5f0;
+
+  /* Destructive */
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #faf5f0;
+
+  /* Borders & Input */
+  --color-border: #33292570;
+  --color-input: #292220;
+  --color-ring: #c53d2e;
+
+  /* Sidebar: Deep sumi */
+  --color-sidebar: #100d0b;
+  --color-sidebar-foreground: #a8978a;
+  --color-sidebar-accent: #c53d2e;
+
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3330;
+}
+
+/* Seigaiha wave pattern — subtle Japanese decorative texture */
+.seigaiha-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 20C5.523 20 10 15.523 10 10S5.523 0 0 0' fill='none' stroke='%23a8978a' stroke-width='0.5' opacity='0.08'/%3E%3Cpath d='M10 20C15.523 20 20 15.523 20 10S15.523 0 10 0' fill='none' stroke='%23a8978a' stroke-width='0.5' opacity='0.08'/%3E%3Cpath d='M20 20C25.523 20 30 15.523 30 10S25.523 0 20 0' fill='none' stroke='%23a8978a' stroke-width='0.5' opacity='0.08'/%3E%3Cpath d='M30 20C35.523 20 40 15.523 40 10S35.523 0 30 0' fill='none' stroke='%23a8978a' stroke-width='0.5' opacity='0.08'/%3E%3C/svg%3E");
+  background-size: 40px 20px;
+}
