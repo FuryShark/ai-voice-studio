@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Sparkles, Save, RotateCcw, Loader2, Star, Zap, HardDrive, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { useWSMessage } from '@/lib/WebSocketContext'
 import { cn } from '@/lib/utils'
 import { PromptBuilder } from './PromptBuilder'
 import type { VoiceProfile, ParlerModel } from '@/types'
@@ -52,7 +53,7 @@ export function PromptVoiceCreator({ onVoiceCreated, parlerAvailable, models }: 
   const [temperature, setTemperature] = useState(1.0)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showPromptBuilder, setShowPromptBuilder] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
+  const wsMessage = useWSMessage()
 
   // Set default model when models are loaded
   useEffect(() => {
@@ -62,30 +63,13 @@ export function PromptVoiceCreator({ onVoiceCreated, parlerAvailable, models }: 
     }
   }, [models, selectedModelId])
 
-  // Connect WebSocket for progress updates
+  // Handle generation progress from shared WebSocket
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws/progress`)
-    wsRef.current = ws
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'progress') {
-          setProgressMessage(data.message || null)
-          setProgressPercent(data.percent || 0)
-        }
-      } catch {}
+    if (wsMessage?.type === 'progress') {
+      setProgressMessage((wsMessage.message as string) || null)
+      setProgressPercent((wsMessage.percent as number) || 0)
     }
-
-    ws.onerror = () => {}
-    ws.onclose = () => {}
-
-    return () => {
-      ws.close()
-      wsRef.current = null
-    }
-  }, [])
+  }, [wsMessage])
 
   const handleGenerate = useCallback(async () => {
     if (!description.trim() || isGenerating) return

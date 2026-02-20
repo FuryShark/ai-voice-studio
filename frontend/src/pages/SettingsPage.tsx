@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Settings, Cpu, HardDrive, Sparkles, Download, RefreshCw, Loader2, CheckCircle2, XCircle, Wrench, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { useWSMessage } from '@/lib/WebSocketContext'
 import type { EngineInfo } from '@/types'
 import type { GpuStatus } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,7 @@ export function SettingsPage() {
   const [gpuStatus, setGpuStatus] = useState<GpuStatus | null>(null)
   const [parlerAvailable, setParlerAvailable] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState<InstallState | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
+  const wsMessage = useWSMessage()
 
   useEffect(() => {
     api.getEngines().then(setEngines).catch(() => {})
@@ -31,30 +32,16 @@ export function SettingsPage() {
     api.getParlerStatus().then((s) => setParlerAvailable(s.available)).catch(() => setParlerAvailable(false))
   }, [])
 
-  // WebSocket for install progress
+  // Handle install progress from shared WebSocket
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws/progress`)
-    wsRef.current = ws
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'install_progress') {
-          setInstalling({
-            engine: data.engine,
-            stage: data.stage === 'complete' ? 'complete' : data.stage === 'error' ? 'error' : 'installing',
-            message: data.message || '',
-          })
-        }
-      } catch {}
+    if (wsMessage?.type === 'install_progress') {
+      setInstalling({
+        engine: wsMessage.engine as string,
+        stage: wsMessage.stage === 'complete' ? 'complete' : wsMessage.stage === 'error' ? 'error' : 'installing',
+        message: (wsMessage.message as string) || '',
+      })
     }
-
-    return () => {
-      ws.close()
-      wsRef.current = null
-    }
-  }, [])
+  }, [wsMessage])
 
   const refreshGpu = useCallback(() => {
     api.getGpuStatus()
