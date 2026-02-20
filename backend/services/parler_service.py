@@ -5,6 +5,8 @@ Operates independently of EngineManager -- loads/unloads its own model.
 """
 
 import asyncio
+import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -15,20 +17,12 @@ from utils.logging_config import get_logger
 logger = get_logger("services.parler")
 
 
+class GenerationCancelled(Exception):
+    """Raised when generation is cancelled due to client disconnect."""
+
+
 # Available voice generation models with quality/speed ratings (1-5 stars)
 VOICE_MODELS = {
-    "parler-large-v1": {
-        "id": "parler-large-v1",
-        "hf_name": "parler-tts/parler-tts-large-v1",
-        "name": "Parler Large v1",
-        "quality": 5,
-        "speed": 2,
-        "vram_gb": 2.3,
-        "download_gb": 4.5,
-        "description": "Highest quality. Rich detail, natural prosody, accurate accents. Best for final voices.",
-        "sample_rate": 44100,
-        "default": True,
-    },
     "parler-mini-v1.1": {
         "id": "parler-mini-v1.1",
         "hf_name": "parler-tts/parler-tts-mini-v1.1",
@@ -37,7 +31,19 @@ VOICE_MODELS = {
         "speed": 4,
         "vram_gb": 1.1,
         "download_gb": 2.2,
-        "description": "Improved mini. Good quality, faster generation, half the VRAM.",
+        "description": "Best balance of quality and speed. Good for most voices.",
+        "sample_rate": 44100,
+        "default": True,
+    },
+    "parler-large-v1": {
+        "id": "parler-large-v1",
+        "hf_name": "parler-tts/parler-tts-large-v1",
+        "name": "Parler Large v1",
+        "quality": 5,
+        "speed": 2,
+        "vram_gb": 2.3,
+        "download_gb": 4.5,
+        "description": "Highest quality but slow (~5-7 min). Rich detail, natural prosody, accurate accents.",
         "sample_rate": 44100,
         "default": False,
     },
@@ -87,7 +93,7 @@ class ParlerVoiceService:
         except Exception:
             pass
 
-    async def load(self, model_id: str = "parler-large-v1") -> None:
+    async def load(self, model_id: str = "parler-mini-v1.1") -> None:
         """Load a Parler-TTS model into memory."""
         # If already loaded with same model, skip
         if self._loaded and self._loaded_model_id == model_id:
@@ -131,7 +137,6 @@ class ParlerVoiceService:
             "percent": 30,
         })
 
-        # Load in full float32 for maximum quality (plenty of VRAM on modern GPUs)
         loop = asyncio.get_event_loop()
         self._model = await loop.run_in_executor(
             None,
@@ -186,8 +191,9 @@ class ParlerVoiceService:
         self,
         description: str,
         sample_text: str = "Hello, this is a preview of my custom voice. I hope you like how it sounds.",
-        model_id: str = "parler-large-v1",
+        model_id: str = "parler-mini-v1.1",
         temperature: float = 1.0,
+        request=None,
     ) -> tuple[Path, float]:
         """Generate a short audio sample from a voice description.
 
@@ -196,6 +202,7 @@ class ParlerVoiceService:
             sample_text: Text for the voice to speak in the preview
             model_id: Which model to use for generation
             temperature: Sampling temperature (lower = more consistent, higher = more varied)
+            request: FastAPI Request object for disconnect detection
 
         Returns:
             (audio_path, duration_seconds)
@@ -203,7 +210,7 @@ class ParlerVoiceService:
         import torch
         import soundfile as sf
 
-        model_config = VOICE_MODELS.get(model_id, VOICE_MODELS["parler-large-v1"])
+        model_config = VOICE_MODELS.get(model_id, VOICE_MODELS["parler-mini-v1.1"])
         sample_rate = model_config["sample_rate"]
 
         await self.load(model_id)
@@ -223,7 +230,17 @@ class ParlerVoiceService:
 
         loop = asyncio.get_event_loop()
 
+        # Cancel flag checked by StoppingCriteria inside model.generate()
+        cancel_event = threading.Event()
+
         def _generate():
+            from transformers import StoppingCriteria, StoppingCriteriaList
+
+            class CancelCheck(StoppingCriteria):
+                """Abort generation when the cancel event is set."""
+                def __call__(self, input_ids, scores, **kwargs):
+                    return cancel_event.is_set()
+
             input_ids = self._tokenizer(
                 description, return_tensors="pt"
             ).input_ids.to(self._device)
@@ -232,15 +249,18 @@ class ParlerVoiceService:
                 sample_text, return_tensors="pt"
             ).input_ids.to(self._device)
 
-            # Build attention masks to suppress the HuggingFace warning
-            attn_mask = torch.ones_like(input_ids)
-            prompt_attn_mask = torch.ones_like(prompt_input_ids)
+            # Cap generation length to prevent runaway buzzing.
+            # DAC codec: ~86 tokens per second of audio at 44100 Hz.
+            word_count = len(sample_text.split())
+            est_seconds = max(word_count * 0.5, 3.0)  # ~0.5s per word, min 3s
+            max_seconds = min(est_seconds * 2, 30.0)   # 2x buffer, cap 30s
+            max_tokens = int(max_seconds * 86)
 
             gen_kwargs = {
                 "input_ids": input_ids,
-                "attention_mask": attn_mask,
                 "prompt_input_ids": prompt_input_ids,
-                "prompt_attention_mask": prompt_attn_mask,
+                "max_new_tokens": max_tokens,
+                "stopping_criteria": StoppingCriteriaList([CancelCheck()]),
             }
 
             # Temperature controls randomness in voice characteristics
@@ -251,9 +271,47 @@ class ParlerVoiceService:
             with torch.no_grad():
                 generation = self._model.generate(**gen_kwargs)
 
+            if cancel_event.is_set():
+                return None
+
             return generation.cpu().float().numpy().squeeze()
 
-        audio = await loop.run_in_executor(None, _generate)
+        # Run generation with periodic heartbeat + disconnect detection
+        gen_future = loop.run_in_executor(None, _generate)
+        start_time = time.monotonic()
+        cancelled = False
+
+        while True:
+            try:
+                audio = await asyncio.wait_for(asyncio.shield(gen_future), timeout=5.0)
+                break
+            except asyncio.TimeoutError:
+                elapsed = int(time.monotonic() - start_time)
+
+                # Check if client disconnected
+                if request is not None:
+                    try:
+                        if await request.is_disconnected():
+                            logger.info(f"Client disconnected after {elapsed}s, cancelling generation")
+                            cancel_event.set()
+                            cancelled = True
+                            # Wait for the thread to finish (should be quick after cancel)
+                            audio = await gen_future
+                            break
+                    except Exception:
+                        pass
+
+                await self._broadcast({
+                    "type": "progress",
+                    "stage": "generating",
+                    "message": f"Generating with {model_config['name']}... ({elapsed}s elapsed)",
+                    "percent": 50,
+                })
+
+        if cancelled or audio is None:
+            await self.unload()
+            raise GenerationCancelled()
+
         duration = len(audio) / sample_rate
 
         # Save to previews directory with date subfolder

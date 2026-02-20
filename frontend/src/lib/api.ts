@@ -2,7 +2,7 @@ import type { HealthResponse, EngineInfo, VoiceProfile, PreviewResponse, ParlerS
 
 const API_BASE = '/api'
 const DEFAULT_TIMEOUT = 15_000
-const GENERATION_TIMEOUT = 300_000
+const LONG_TIMEOUT = 600_000 // 10 min for installs/cuda fixes
 
 async function fetchJSON<T>(
   url: string,
@@ -62,7 +62,7 @@ export const api = {
   installEngine: (name: string) =>
     fetchJSON<{ status: string; engine: string; message: string }>(
       `/tts/engines/install/${name}`,
-      { method: 'POST', timeout: GENERATION_TIMEOUT },
+      { method: 'POST', timeout: LONG_TIMEOUT },
     ),
 
   // Voice creation - from prompt
@@ -74,10 +74,11 @@ export const api = {
     if (sampleText) formData.append('sample_text', sampleText)
     if (modelId) formData.append('model_id', modelId)
     if (temperature !== undefined) formData.append('temperature', String(temperature))
+    // No timeout — generation can take minutes. Backend heartbeat shows progress,
+    // and disconnect detection cancels if the tab is closed.
     const res = await fetch(`${API_BASE}/voices/create/preview-from-prompt`, {
       method: 'POST',
       body: formData,
-      signal: AbortSignal.timeout(GENERATION_TIMEOUT),
     })
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'Preview generation failed' }))
@@ -148,7 +149,7 @@ export const api = {
   fixCuda: () =>
     fetchJSON<{ status: string; message: string }>(
       '/gpu/fix-cuda',
-      { method: 'POST', timeout: GENERATION_TIMEOUT },
+      { method: 'POST', timeout: LONG_TIMEOUT },
     ),
 
   restart: () =>

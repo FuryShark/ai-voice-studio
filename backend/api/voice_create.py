@@ -8,11 +8,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, File, Request, UploadFile, Form
 
 from config import settings
 from engines.base import VoiceProfile
-from services.parler_service import ParlerVoiceService
+from services.parler_service import ParlerVoiceService, GenerationCancelled
 from services.voice_library import VoiceLibrary
 from utils.logging_config import get_logger
 
@@ -39,9 +39,10 @@ async def parler_status():
 
 @router.post("/preview-from-prompt")
 async def preview_from_prompt(
+    request: Request,
     description: str = Form(...),
     sample_text: str = Form("Hello, this is a preview of my custom voice. I hope you like how it sounds."),
-    model_id: str = Form("parler-large-v1"),
+    model_id: str = Form("parler-mini-v1.1"),
     temperature: float = Form(1.0),
 ):
     """Generate a preview audio from a voice description using Parler-TTS.
@@ -62,7 +63,11 @@ async def preview_from_prompt(
             sample_text=sample_text,
             model_id=model_id,
             temperature=temperature,
+            request=request,
         )
+    except GenerationCancelled:
+        logger.info("Generation cancelled (client disconnected)")
+        raise HTTPException(status_code=499, detail="Generation cancelled")
     except Exception as e:
         logger.error(f"Preview generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Preview generation failed: {e}")

@@ -260,8 +260,8 @@ export function PromptVoiceCreator({ onVoiceCreated, parlerAvailable, models }: 
               </div>
               <input
                 type="range"
-                min="0.1"
-                max="2.0"
+                min="0.5"
+                max="1.5"
                 step="0.05"
                 value={temperature}
                 onChange={(e) => setTemperature(parseFloat(e.target.value))}
@@ -269,12 +269,12 @@ export function PromptVoiceCreator({ onVoiceCreated, parlerAvailable, models }: 
                 className="w-full accent-primary"
               />
               <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Consistent</span>
+                <span>Consistent (0.5)</span>
                 <span>Default (1.0)</span>
-                <span>Creative</span>
+                <span>Creative (1.5)</span>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Lower values produce more consistent, predictable voices. Higher values introduce more variation and expressiveness but may sound less stable.
+                Controls voice variation. Values below 0.5 can cause the model to ignore your description. Values above 1.5 may sound unstable.
               </p>
             </div>
           </div>
