@@ -349,7 +349,7 @@ export function SettingsPage() {
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
           <p>AI Voice Studio v0.1.0</p>
-          <p>Local AI-powered voice creation with text-to-voice and audio cloning.</p>
+          <p>Local AI-powered voice creation with text-to-voice and audio reference.</p>
           <p>All processing runs on your GPU — no cloud APIs, no fees.</p>
         </div>
       </div>

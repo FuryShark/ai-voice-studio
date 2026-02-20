@@ -86,6 +86,7 @@ components/
 lib/
   api.ts                        — Typed fetch wrapper for all endpoints
   utils.ts                      — cn() helper (clsx + tailwind-merge)
+  WebSocketContext.tsx           — Shared WebSocket provider + useWSMessage hook
 types/
   index.ts                      — VoiceProfile, EngineInfo, PreviewResponse, PageId, etc.
 ```
