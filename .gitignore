@@ -28,4 +28,4 @@ Thumbs.db
 # Environment
 .env
 .env.local
-.claude/settings.local.json
+.claude/
