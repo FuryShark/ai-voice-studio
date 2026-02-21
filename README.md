@@ -102,6 +102,58 @@ ai-voice-studio/
 - **espeak-ng** (required for Kokoro TTS engine)
 - **~4 GB disk space** for dependencies and models on first run
 
+## Alternative: Qwen3-TTS VoiceDesign
+
+[Qwen3-TTS 1.7B VoiceDesign](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign) is an alternative model that accepts natural language voice descriptions, similar to Parler-TTS but with potentially better accuracy at following descriptions. It supports 10 languages and runs at ~5.5 GB VRAM (bf16).
+
+**Trade-offs vs Parler-TTS:**
+- Better at following voice descriptions (gender, accent, tone)
+- 10 languages (EN, FR, ES, PT, DE, IT, RU, ZH, JA, KO)
+- Slower generation (3-5x slower than Parler Mini, autoregressive architecture)
+- Tighter VRAM fit on 8 GB cards — Flash Attention 2 recommended
+- 24 kHz output vs Parler's 44.1 kHz
+- Has a dependency conflict with `parler-tts` (both pin different `transformers` versions)
+
+**Installation (experimental — may conflict with parler-tts):**
+
+```bash
+# Activate your venv first
+pip install qwen-tts
+
+# This will upgrade transformers from 4.46.1 to 4.57.3
+# Parler-TTS will likely still work but is not officially supported at this version
+
+# Optional but recommended for VRAM savings (requires Visual Studio Build Tools + CUDA toolkit on Windows):
+pip install flash-attn --no-build-isolation
+```
+
+**Additional Windows requirements:**
+- [SoX](https://sourceforge.net/projects/sox/) must be installed and on PATH (required by `qwen-tts`)
+- Flash Attention 2 compilation needs [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with C++ workload
+
+**Basic usage (Python):**
+
+```python
+import torch
+import soundfile as sf
+from qwen_tts import Qwen3TTSModel
+
+model = Qwen3TTSModel.from_pretrained(
+    "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    device_map="cuda:0",
+    dtype=torch.bfloat16,
+)
+
+wavs, sr = model.generate_voice_design(
+    text="Hello, this is a preview of my custom voice.",
+    language="English",
+    instruct="A warm, friendly adult male voice with a calm tone and moderate pace.",
+)
+sf.write("output.wav", wavs[0], sr)  # 24 kHz mono WAV
+```
+
+Qwen3-TTS is not currently integrated into the app UI. This section is here as a reference if you want to experiment with it manually or contribute an integration.
+
 ## Troubleshooting
 
 ### "Python is not installed" or "not recognized"

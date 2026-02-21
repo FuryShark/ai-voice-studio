@@ -59,6 +59,42 @@ VOICE_MODELS = {
         "sample_rate": 44100,
         "default": False,
     },
+    "parler-tiny-v1": {
+        "id": "parler-tiny-v1",
+        "hf_name": "parler-tts/parler-tts-tiny-v1",
+        "name": "Parler Tiny v1",
+        "quality": 2,
+        "speed": 5,
+        "vram_gb": 0.5,
+        "download_gb": 1.0,
+        "description": "Ultra-fast, ultra-light. Lower quality but great for rapidly testing descriptions.",
+        "sample_rate": 44100,
+        "default": False,
+    },
+    "parler-mini-multilingual-v1.1": {
+        "id": "parler-mini-multilingual-v1.1",
+        "hf_name": "parler-tts/parler-tts-mini-multilingual-v1.1",
+        "name": "Parler Mini Multilingual v1.1",
+        "quality": 4,
+        "speed": 4,
+        "vram_gb": 1.1,
+        "download_gb": 2.2,
+        "description": "8 languages: English, French, Spanish, Portuguese, Polish, German, Italian, Dutch. 16 named speakers.",
+        "sample_rate": 44100,
+        "default": False,
+    },
+    "parler-mini-expresso": {
+        "id": "parler-mini-expresso",
+        "hf_name": "parler-tts/parler-tts-mini-expresso",
+        "name": "Parler Mini Expresso",
+        "quality": 3,
+        "speed": 4,
+        "vram_gb": 1.1,
+        "download_gb": 2.2,
+        "description": "Emotion control: happy, confused, laughing, sad. Speakers: Jerry, Thomas, Elisabeth, Talia.",
+        "sample_rate": 44100,
+        "default": False,
+    },
 }
 
 
@@ -250,11 +286,12 @@ class ParlerVoiceService:
             ).input_ids.to(self._device)
 
             # Cap generation length to prevent runaway buzzing.
-            # DAC codec: ~86 tokens per second of audio at 44100 Hz.
+            # Parler-TTS uses ~760 tokens per second of audio
+            # (DAC codec ~86 frames/s * ~9 codebooks).
             word_count = len(sample_text.split())
             est_seconds = max(word_count * 0.5, 3.0)  # ~0.5s per word, min 3s
             max_seconds = min(est_seconds * 2, 30.0)   # 2x buffer, cap 30s
-            max_tokens = int(max_seconds * 86)
+            max_tokens = int(max_seconds * 760)
 
             gen_kwargs = {
                 "input_ids": input_ids,
